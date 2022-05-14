@@ -1,0 +1,193 @@
+---
+title: "Electric Fuel Sations and Zip Code Income"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+LBL_IND = "Individual median earnings"
+LBL_FAM = "Family medial income"
+LBL_ES = "E station"
+
+```
+
+## Getting the data
+
+On March 1, 2022, [Tidy Tuesday](https://github.com/rfordatascience/tidytuesday) presented the [alternative fuel stations database](https://afdc.energy.gov/data_download) as the weekly challenge. The [alternative fuel data center](https://afdc.energy.gov/) at the U.S. Department of Energy has great tools to visualize the availability, spread, and evolution of alternative fuel stations. I thought this would be a good opportunity to try to combine this nicely kept database with [U.S. Census data](https://data.census.gov/). I was curious about the relationship between the zip code median income and the availability of electric fueling stations.
+
+First, I got a count per zip code of electric fuel, available, and public stations.
+
+```{r data_stations, message=FALSE, warning=FALSE}
+# STATIONS per zip code -----------------------------------------------
+stations <- readRDS("data/stations.RDS")
+stations <- stations %>% 
+  filter(STATUS_CODE == "E",            #Available
+         FUEL_TYPE_CODE == "ELEC",      #Electric
+         ACCESS_CODE == "public") %>%   #Public
+  group_by(ZIP) %>% 
+  summarize(e_stations = n())
+```
+
+Then I searched for income by zip code at the U.S. Census. Since I was only looking for median incomes or earnings, I downloaded the 2020 estimates from the [American Community Survey](https://www.census.gov/programs-surveys/acs/about.html) for individual earnings (S2001) and family income (S1903) for the last 12 months. These tables have the values for indicators as columns with non-intuitive names. You really need to look at the metadata carefully. I spend hours wrangling the data, but in the end I did not use any of the race, education, and income bracket indicators. I retrieved only the median earnings of individuals 16 years and older and the median income of families per zip code.
+
+```{r data_income, message=FALSE, warning=FALSE}
+# INCOME per zip code --------------------------------------------------
+
+# S2001 EARNINGS IN THE PAST 12 MONTHS (IN 2020 INFLATION-ADJUSTED DOLLARS)
+# Estimate!!Total!!Population 16 years and over with earnings!!Median earnings (dollars)
+
+S2001 <- read_csv("data/S2001/S2001.csv", 
+                  col_select = c(NAME,S2001_C01_002E),
+                  col_types = list(S2001_C01_002E = col_double())) %>%
+  mutate(NAME = substr(NAME,7,11)) %>% 
+  rename(ZIP = NAME, ind_med_earnings = S2001_C01_002E)
+S2001 <- S2001[-1,]
+   
+
+# S1903 MEDIAN INCOME IN THE PAST 12 MONTHS (IN 2020 INFLATION-ADJUSTED DOLLARS)
+# Estimate!!Median income (dollars)!!FAMILIES!!Families
+
+S1903 <- read_csv("data/S1903/S1903.csv",
+                  col_select = c(NAME, S1903_C03_015E),
+                  col_types = list(S1903_C03_015E = col_double())) %>% 
+  mutate(NAME = substr(NAME,7,11)) %>% 
+  rename(ZIP = NAME, fam_med_income = S1903_C03_015E)
+S1903 <- S1903[-1,]
+
+iee_data <- left_join(S2001,S1903)
+```
+
+I joined the electric station data to the income data. To keep track of the lack of existence of electric fuel stations I did not want to rely on counting the NAs, so I created a "has_e" column.
+
+```{r data_join, message=FALSE, warning=FALSE}
+iee_data <- iee_data %>% 
+  left_join(stations, by = c("ZIP")) %>% 
+  mutate(has_e = ifelse(is.na(e_stations),"no","yes"))
+```
+
+## Visualizing and interpreting the data
+
+#### Zip code incomes and electric fuel stations
+
+These density charts confirm my hunch. The distribution of zip codes with electric stations shifts to the right compared to those without. In other words, the median incomes/earnings of zip codes with at least one electric station is higher than those without.
+
+```{r desnsity, message=FALSE, warning=FALSE, fig.show="hold", out.width="50%"}
+iee_medians <- iee_data %>% 
+  group_by(has_e) %>% 
+  summarise(fam_m = median(fam_med_income, na.rm = T),
+            ind_m = median(ind_med_earnings, na.rm = T))
+
+iee_data %>% 
+  filter(!is.na(fam_med_income)) %>% 
+  ggplot(aes(fam_med_income)) + 
+  geom_density(aes(fill = has_e, color = has_e), alpha = 1/3) +
+  geom_vline(data = iee_medians, aes(xintercept = iee_medians$fam_m, color = has_e), size = 0.5) +
+  geom_text(data = iee_medians, 
+            aes(label = scales::dollar(iee_medians$fam_m), x = iee_medians$fam_m, y = 4e-5), 
+            angle = 90, size = 3) +
+  scale_y_continuous(limits = c(0,6e-5), name = "density") +
+  scale_x_continuous(labels = scales::dollar_format(), name = LBL_FAM) +
+  scale_color_discrete(name = LBL_ES) +
+  scale_fill_discrete(name = LBL_ES) +
+  theme_minimal()
+
+iee_data %>% 
+  filter(!is.na(ind_med_earnings)) %>% 
+  ggplot(aes(ind_med_earnings)) + 
+  geom_density(aes(fill = has_e, color = has_e), alpha = 1/3) +
+  geom_vline(data = iee_medians, aes(xintercept = iee_medians$ind_m, color = has_e), size = 0.5) +
+  geom_text(data = iee_medians, 
+            aes(label = scales::dollar(iee_medians$ind_m), x = iee_medians$ind_m, y = 1e-5), 
+            angle = 90, size = 3) +
+  scale_y_continuous(limits = c(0,6e-5), name = "density") +
+  scale_x_continuous(labels = scales::dollar_format(), name = LBL_IND) +
+  scale_color_discrete(name = LBL_ES) +
+  scale_fill_discrete(name = LBL_ES) +
+  theme_minimal()
+```
+
+I plotted the histograms just to see how the quantity of zip codes with and without stations compared, since this is lost in the density charts. As expected, there are more zip codes without stations.
+
+```{r histograms, message=FALSE, warning=FALSE, fig.show="hold", out.width="50%"}
+iee_data %>% 
+  filter(!is.na(fam_med_income)) %>% 
+  ggplot(aes(fam_med_income, fill = has_e, color = has_e)) + 
+  geom_histogram(alpha = .2, binwidth = 2000) +
+  scale_y_continuous(limits = c(0,3000)) +
+  scale_x_continuous(labels = scales::dollar_format(), name = LBL_FAM) +
+  scale_color_discrete(name = LBL_ES) +
+  scale_fill_discrete(name = LBL_ES) +
+  theme_minimal()
+
+iee_data %>% 
+  filter(!is.na(ind_med_earnings)) %>% 
+  ggplot(aes(ind_med_earnings, fill = has_e, color = has_e)) + 
+  geom_histogram(alpha = .2, binwidth = 2000) +
+  scale_y_continuous(limits = c(0,3000)) +
+  scale_x_continuous(labels = scales::dollar_format(), name = LBL_IND) +
+  scale_color_discrete(name = LBL_ES) +
+  scale_fill_discrete(name = LBL_ES) +
+  theme_minimal()
+```
+
+#### Quantity of stations per zip code and income/earnings
+
+I learned these heatmaps are not good visuals to interpret the relationship between stations and zip code income. They tell more a story of the distribution of income than of the relationship between station/income. They are good to visualize the quantity of stations per zip code and see the ourliers. It's worth noting that Menlo Park has a whopping 359 electric fuel stations and a median family income of \$204,557!!
+
+```{r heatmaps, warning = F, message = F, fig.show="hold", out.width="50%"}
+iee_data %>% 
+  filter(!is.na(fam_med_income),!is.na(e_stations)) %>% 
+  ggplot(aes(fam_med_income, e_stations)) +
+  geom_bin_2d(bins = 100) +
+  scale_x_continuous(labels = scales::dollar_format(), name = LBL_FAM) +
+  scale_y_continuous(name = "E station count") +
+  scale_fill_continuous(type = "viridis", name = "zip code count")  +
+  theme_minimal()
+
+iee_data %>% 
+  filter(!is.na(ind_med_earnings),!is.na(e_stations)) %>% 
+  ggplot(aes(ind_med_earnings, e_stations)) +
+  geom_bin_2d(bins = 100) +
+  scale_x_continuous(labels = scales::dollar_format(), name = LBL_IND) +
+  scale_y_continuous(name = "E station count") +
+  scale_fill_continuous(type = "viridis", name = "zip code count")  +
+  theme_minimal()
+```
+
+#### Individual earnings and family income
+
+In the charts above, I was surprised by how different the relationship between income and stations looks depending on whether you use family median income or individual median earnings. To see why, I plotted the density chart comparing these two. As expected, the median income of families, is higher and more spread out than those of individual earnings. [The U.S. census explains the difference between income and earnings.](https://www.census.gov/newsroom/blogs/random-samplings/2010/09/income-vs-earnings.html). I'm shocked that the family median income is over \$70,000 (earnings/income for the past 12 months in 2020 inflation-adjusted dollars).
+
+```{r inc_earn, message=FALSE, warning=FALSE}
+iee_medians <- tibble(type = c("ind_med_earnings","fam_med_income"),
+                      amount = c(median(iee_data$ind_med_earnings, na.rm = T), 
+                                 median(iee_data$fam_med_income, na.rm = T)))
+
+iee_data %>% 
+  select(ZIP,ind_med_earnings, fam_med_income) %>% 
+  pivot_longer(cols = 2:3, names_to = "type", values_to = "amount") %>% 
+  ggplot(aes(amount)) +
+  geom_density(aes(fill = type, color = type), alpha = 1/3) +
+  geom_vline(data = iee_medians, aes(xintercept = iee_medians$amount, color = type), size = 0.5) +
+  geom_text(data = iee_medians, 
+            aes(label = scales::dollar(iee_medians$amount), x = iee_medians$amount, y = 1e-5), 
+            angle = 90, size = 3) +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(name = "density") +
+  theme_minimal()
+```
+
+## Conclusion
+
+Which income indicator you use matters. There is indeed a relationship between zip code income/earnings and electric fuel stations, but it is small. The lesson is more about which indicator to use.
+
+This project was done as an exercise to learn R, Rmarkdown, and the basics of joining data from different sources. In that regard, the biggest challenge was finding and cleaning U.S. Census data.
+
+------------------------------------------------------------------------
+
+May 12, 2022. Minneapolis, MN.
