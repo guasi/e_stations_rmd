@@ -24,7 +24,7 @@ First, I got a count per zip code of electric fuel, available, and public statio
 
 ```{r data_stations, message=FALSE, warning=FALSE}
 # STATIONS per zip code -----------------------------------------------
-stations <- readRDS("data/stations.RDS")
+stations <- readRDS("data/stations.rds")
 stations <- stations %>% 
   filter(STATUS_CODE == "E",            #Available
          FUEL_TYPE_CODE == "ELEC",      #Electric
