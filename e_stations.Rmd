@@ -1,7 +1,11 @@
 ---
 title: "Electric Fuel Sations and Zip Code Income"
+author: Ingrid Lagos
+date: May 14, 2022
 output: 
   html_document:
+    theme: cosmo
+    highlight: tango
     code_folding: hide
 ---
 
@@ -10,15 +14,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 
-LBL_IND = "Individual median earnings"
-LBL_FAM = "Family medial income"
-LBL_ES = "E station"
+LBL_IND = "individual median earnings"
+LBL_FAM = "family median income"
+LBL_ES = "e station"
+LBL_ZCC = "zip code count"
 
 ```
 
 ## Getting the data
 
-On March 1, 2022, [Tidy Tuesday](https://github.com/rfordatascience/tidytuesday) presented the [alternative fuel stations database](https://afdc.energy.gov/data_download) as the weekly challenge. The [alternative fuel data center](https://afdc.energy.gov/) at the U.S. Department of Energy has great tools to visualize the availability, spread, and evolution of alternative fuel stations. I thought this would be a good opportunity to try to combine this nicely kept database with [U.S. Census data](https://data.census.gov/). I was curious about the relationship between the zip code median income and the availability of electric fueling stations.
+On March 1, 2022, [Tidy Tuesday](https://github.com/rfordatascience/tidytuesday) presented the [alternative fuel stations database](https://afdc.energy.gov/data_download) as the weekly challenge. The [alternative fuel data center](https://afdc.energy.gov/) at the U.S. Department of Energy has great tools to visualize the availability, spread, and evolution of alternative fuel stations. I thought this would be a good opportunity to combine this nicely kept database with [U.S. Census data](https://data.census.gov/). I was curious about the relationship between the zip code median income and the availability of electric fueling stations.
 
 First, I got a count per zip code of electric fuel, available, and public stations.
 
@@ -33,7 +38,7 @@ stations <- stations %>%
   summarize(e_stations = n())
 ```
 
-Then I searched for income by zip code at the U.S. Census. Since I was only looking for median incomes or earnings, I downloaded the 2020 estimates from the [American Community Survey](https://www.census.gov/programs-surveys/acs/about.html) for individual earnings (S2001) and family income (S1903) for the last 12 months. These tables have the values for indicators as columns with non-intuitive names. You really need to look at the metadata carefully. I spend hours wrangling the data, but in the end I did not use any of the race, education, and income bracket indicators. I retrieved only the median earnings of individuals 16 years and older and the median income of families per zip code.
+Then I downloaded the 2020 estimates from the [American Community Survey](https://www.census.gov/programs-surveys/acs/about.html) for individual earnings (S2001) and family income (S1903) for the last 12 months, adjusted for inflation. I retrieved only the median earnings of individuals 16 years and older and the median income of families per zip code.
 
 ```{r data_income, message=FALSE, warning=FALSE}
 # INCOME per zip code --------------------------------------------------
@@ -86,9 +91,9 @@ iee_data %>%
   filter(!is.na(fam_med_income)) %>% 
   ggplot(aes(fam_med_income)) + 
   geom_density(aes(fill = has_e, color = has_e), alpha = 1/3) +
-  geom_vline(data = iee_medians, aes(xintercept = iee_medians$fam_m, color = has_e), size = 0.5) +
+  geom_vline(data = iee_medians, aes(xintercept = fam_m, color = has_e), size = 0.5) +
   geom_text(data = iee_medians, 
-            aes(label = scales::dollar(iee_medians$fam_m), x = iee_medians$fam_m, y = 4e-5), 
+            aes(label = scales::dollar(fam_m), x = fam_m, y = 4e-5), 
             angle = 90, size = 3) +
   scale_y_continuous(limits = c(0,6e-5), name = "density") +
   scale_x_continuous(labels = scales::dollar_format(), name = LBL_FAM) +
@@ -100,9 +105,9 @@ iee_data %>%
   filter(!is.na(ind_med_earnings)) %>% 
   ggplot(aes(ind_med_earnings)) + 
   geom_density(aes(fill = has_e, color = has_e), alpha = 1/3) +
-  geom_vline(data = iee_medians, aes(xintercept = iee_medians$ind_m, color = has_e), size = 0.5) +
+  geom_vline(data = iee_medians, aes(xintercept = ind_m, color = has_e), size = 0.5) +
   geom_text(data = iee_medians, 
-            aes(label = scales::dollar(iee_medians$ind_m), x = iee_medians$ind_m, y = 1e-5), 
+            aes(label = scales::dollar(ind_m), x = ind_m, y = 1e-5), 
             angle = 90, size = 3) +
   scale_y_continuous(limits = c(0,6e-5), name = "density") +
   scale_x_continuous(labels = scales::dollar_format(), name = LBL_IND) +
@@ -118,7 +123,7 @@ iee_data %>%
   filter(!is.na(fam_med_income)) %>% 
   ggplot(aes(fam_med_income, fill = has_e, color = has_e)) + 
   geom_histogram(alpha = .2, binwidth = 2000) +
-  scale_y_continuous(limits = c(0,3000)) +
+  scale_y_continuous(limits = c(0,3000), name = LBL_ZCC) +
   scale_x_continuous(labels = scales::dollar_format(), name = LBL_FAM) +
   scale_color_discrete(name = LBL_ES) +
   scale_fill_discrete(name = LBL_ES) +
@@ -128,7 +133,7 @@ iee_data %>%
   filter(!is.na(ind_med_earnings)) %>% 
   ggplot(aes(ind_med_earnings, fill = has_e, color = has_e)) + 
   geom_histogram(alpha = .2, binwidth = 2000) +
-  scale_y_continuous(limits = c(0,3000)) +
+  scale_y_continuous(limits = c(0,3000), name = LBL_ZCC) +
   scale_x_continuous(labels = scales::dollar_format(), name = LBL_IND) +
   scale_color_discrete(name = LBL_ES) +
   scale_fill_discrete(name = LBL_ES) +
@@ -145,8 +150,8 @@ iee_data %>%
   ggplot(aes(fam_med_income, e_stations)) +
   geom_bin_2d(bins = 100) +
   scale_x_continuous(labels = scales::dollar_format(), name = LBL_FAM) +
-  scale_y_continuous(name = "E station count") +
-  scale_fill_continuous(type = "viridis", name = "zip code count")  +
+  scale_y_continuous(name = "e station count") +
+  scale_fill_continuous(type = "viridis", name = LBL_ZCC)  +
   theme_minimal()
 
 iee_data %>% 
@@ -154,8 +159,8 @@ iee_data %>%
   ggplot(aes(ind_med_earnings, e_stations)) +
   geom_bin_2d(bins = 100) +
   scale_x_continuous(labels = scales::dollar_format(), name = LBL_IND) +
-  scale_y_continuous(name = "E station count") +
-  scale_fill_continuous(type = "viridis", name = "zip code count")  +
+  scale_y_continuous(name = "e station count") +
+  scale_fill_continuous(type = "viridis", name = LBL_ZCC)  +
   theme_minimal()
 ```
 
@@ -173,9 +178,9 @@ iee_data %>%
   pivot_longer(cols = 2:3, names_to = "type", values_to = "amount") %>% 
   ggplot(aes(amount)) +
   geom_density(aes(fill = type, color = type), alpha = 1/3) +
-  geom_vline(data = iee_medians, aes(xintercept = iee_medians$amount, color = type), size = 0.5) +
+  geom_vline(data = iee_medians, aes(xintercept = amount, color = type), size = 0.5) +
   geom_text(data = iee_medians, 
-            aes(label = scales::dollar(iee_medians$amount), x = iee_medians$amount, y = 1e-5), 
+            aes(label = scales::dollar(amount), x = amount, y = 1e-5), 
             angle = 90, size = 3) +
   scale_x_continuous(labels = scales::dollar_format()) +
   scale_y_continuous(name = "density") +
@@ -187,7 +192,3 @@ iee_data %>%
 Which income indicator you use matters. There is indeed a relationship between zip code income/earnings and electric fuel stations, but it is small. The lesson is more about which indicator to use.
 
 This project was done as an exercise to learn R, Rmarkdown, and the basics of joining data from different sources. In that regard, the biggest challenge was finding and cleaning U.S. Census data.
-
-------------------------------------------------------------------------
-
-May 12, 2022. Minneapolis, MN.
