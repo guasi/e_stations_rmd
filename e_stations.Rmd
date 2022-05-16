@@ -146,7 +146,7 @@ iee_data %>%
 
 ### E station proportions according to income quartiles 
 
-To dig deeper into how lower income zip codes compare to higher income ones, I calculated the proportion of zip codes with e stations in each income quartile. The difference here is more telling. The proportion of zip codes with e stations is 17% in the bottom family median income quartile and 47% in the highest, which means zip codes with family median incomes in the top 25% are 2.76 more likely to have an e station than those in the bottom 25%. In other words, for every low income zip code, there are 2.76 high income ones that have at least one e station.
+To dig deeper into how lower income zip codes compare to higher income ones, I calculated the proportion of zip codes with e stations in each income quartile. The difference here is more telling. The proportion of zip codes with e stations is 17% in the bottom family median income quartile and 47% in the highest, which means zip codes with family median incomes in the top 25% are 2.76 times more likely to have an e station than those in the bottom 25%. In other words, for every low income zip code, there are 2.76 high income ones that have at least one e station.
 
 ```{r quants, warning = F, message = F, warning=FALSE, fig.show="hold", out.width="50%"}
 
