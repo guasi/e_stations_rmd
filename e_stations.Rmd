@@ -23,7 +23,7 @@ LBL_ZCC = "zip code count"
 
 ## Getting the data
 
-On March 1, 2022, [Tidy Tuesday](https://github.com/rfordatascience/tidytuesday) presented the [alternative fuel stations database](https://afdc.energy.gov/data_download) as the weekly challenge. The [alternative fuel data center](https://afdc.energy.gov/) at the U.S. Department of Energy has great tools to visualize the availability, spread, and evolution of alternative fuel stations. I thought this would be a good opportunity to combine this nicely kept database with [U.S. Census data](https://data.census.gov/). I was curious about the relationship between the zip code median income and the availability of electric fueling stations.
+On March 1, 2022, [Tidy Tuesday](https://github.com/rfordatascience/tidytuesday) presented the [alternative fuel stations database](https://afdc.energy.gov/data_download) as the weekly challenge. The [alternative fuel data center](https://afdc.energy.gov/) at the U.S. Department of Energy has great tools to visualize the availability, spread, and evolution of alternative fuel stations. Instead of focusing on the stations themselves, I thought this would be a good opportunity to combine this nicely kept database with [U.S. Census data](https://data.census.gov/). I was curious about the relationship between the zip code median income and the availability of electric fueling stations.
 
 First, I got a count per zip code of electric fuel, available, and public stations.
 
@@ -51,6 +51,7 @@ S2001 <- read_csv("data/S2001/S2001.csv",
                   col_types = list(S2001_C01_002E = col_double())) %>%
   mutate(NAME = substr(NAME,7,11)) %>% 
   rename(ZIP = NAME, ind_med_earnings = S2001_C01_002E)
+attr(S2001,'spec') <- NULL
 S2001 <- S2001[-1,]
    
 
@@ -62,22 +63,25 @@ S1903 <- read_csv("data/S1903/S1903.csv",
                   col_types = list(S1903_C03_015E = col_double())) %>% 
   mutate(NAME = substr(NAME,7,11)) %>% 
   rename(ZIP = NAME, fam_med_income = S1903_C03_015E)
+attr(S1903,'spec') <- NULL
 S1903 <- S1903[-1,]
 
 iee_data <- left_join(S2001,S1903)
 ```
 
-I joined the electric station data to the income data. To keep track of the lack of existence of electric fuel stations I did not want to rely on counting the NAs, so I created a "has_e" column.
+I joined the electric station data to the income data. To keep track of the lack of existence of electric fuel stations I did not want to rely on counting the NAs, so I created a "has_e" column. I also added a quartile factor for family median income and individual median earnings.
 
 ```{r data_join, message=FALSE, warning=FALSE}
 iee_data <- iee_data %>% 
+  mutate(fam_quant = cut(fam_med_income,quantile(fam_med_income, na.rm =T),include.lowest = T),
+         ind_quant = cut(ind_med_earnings,quantile(ind_med_earnings, na.rm =T),include.lowest = T)) %>% 
   left_join(stations, by = c("ZIP")) %>% 
   mutate(has_e = ifelse(is.na(e_stations),"no","yes"))
 ```
 
 ## Visualizing and interpreting the data
 
-#### Zip code incomes and electric fuel stations
+### Zip code incomes and electric fuel stations
 
 These density charts confirm my hunch. The distribution of zip codes with electric stations shifts to the right compared to those without. In other words, the median incomes/earnings of zip codes with at least one electric station is higher than those without.
 
@@ -140,9 +144,86 @@ iee_data %>%
   theme_minimal()
 ```
 
-#### Quantity of stations per zip code and income/earnings
+### E station proportions according to income quartiles 
 
-I learned these heatmaps are not good visuals to interpret the relationship between stations and zip code income. They tell more a story of the distribution of income than of the relationship between station/income. They are good to visualize the quantity of stations per zip code and see the ourliers. It's worth noting that Menlo Park has a whopping 359 electric fuel stations and a median family income of \$204,557!!
+To dig deeper into how lower income zip codes compare to higher income ones, I calculated the proportion of zip codes with e stations in each income quartile. The difference here is more telling. The proportion of zip codes with e stations is 17% in the bottom family median income quartile and 47% in the highest, which means zip codes with family median incomes in the top 25% are 2.76 more likely to have an e station than those in the bottom 25%. In other words, for every low income zip code, there are 2.76 high income ones that have at least one e station.
+
+```{r quants, warning = F, message = F, warning=FALSE, fig.show="hold", out.width="50%"}
+
+fam_prop <- iee_data %>% 
+  filter(!is.na(fam_med_income)) %>% 
+  group_by(has_e,fam_quant) %>%  
+  summarise(freq = n()) %>% 
+  group_by(fam_quant) %>% 
+  mutate(prop = round(freq/sum(freq),2)) %>% 
+  ungroup()
+
+
+ind_prop <- iee_data %>% 
+  filter(!is.na(ind_med_earnings)) %>% 
+  group_by(has_e,ind_quant) %>%  
+  summarise(freq = n()) %>% 
+  group_by(ind_quant) %>% 
+  mutate(prop = round(freq/sum(freq),2)) %>% 
+  ungroup()
+
+iee_data %>% 
+  filter(!is.na(fam_med_income)) %>% 
+  group_by(has_e) %>% 
+  ggplot(aes(fam_quant, fill = has_e)) +
+  geom_bar(alpha = 3/4) +
+  geom_text(data = fam_prop, aes(label = scales::percent(prop), x = fam_quant, y = c(rep(5000,4),rep(1000,4)))) +
+  scale_x_discrete(labels = c("Q1","Q2","Q3","Q4"), name = paste(LBL_FAM,"quartiles")) +
+  scale_y_continuous(name = LBL_ZCC) +
+  scale_fill_discrete(name = LBL_ES) +
+  theme_minimal()
+
+iee_data %>% 
+  filter(!is.na(ind_med_earnings)) %>% 
+  group_by(has_e) %>% 
+  ggplot(aes(ind_quant, fill = has_e)) +
+  geom_bar(alpha = 3/4) +
+  geom_text(data = ind_prop, aes(label = scales::percent(prop), x = ind_quant, y = c(rep(5000,4),rep(1000,4)))) +
+  scale_x_discrete(labels = c("Q1","Q2","Q3","Q4"), name = paste(LBL_IND,"quartiles")) +
+  scale_y_continuous(name = LBL_ZCC) +
+  scale_fill_discrete(name = LBL_ES) +
+  theme_minimal()
+
+```
+
+family median income quartiles | individual median earnings quartiles
+-------------------------------|-------------------------------------
+100%  Q4 (\$88,500, \$249,000] | 100%  Q4 (\$41,000, \$246,000]
+75%   Q3 (\$70,700, \$88,500]  | 75%   Q3 (\$33,900, \$41,000] 
+50%   Q2 (\$57,000, \$70,700]  | 50%   Q2 (\$28,800, \$33,900] 
+25%   Q1 [\$5,310, \$57,000]   | 25%   Q1 [\$2,590, \$28,800]
+
+Each quartile is made up of a quarter of all zip code incomes, organized from lowest to largest such that Q1 contains the bottom 25% and Q4 contains the top 25%.
+
+
+```{r warning = F, message = F, eval=FALSE, echo=FALSE}
+clean_interval <- function(x) {
+  oc <- c(str_sub(x,1,1),str_sub(x,-1,-1))
+  x <- str_sub(x,2,str_length(x)-1)
+  x <- as.double(str_split(x,",",simplify=T))
+  x <- scales::dollar(x)
+  paste0(oc[1],x[1],", ",x[2],oc[2])
+}
+
+fam_prop %>% 
+  arrange(desc(fam_quant)) %>% 
+  mutate(fam_quant = lapply(fam_quant,clean_interval)) %>% 
+  knitr::kable()
+
+ind_prop %>% 
+  arrange(desc(ind_quant)) %>% 
+  mutate(ind_quant = lapply(ind_quant,clean_interval)) %>% 
+  knitr::kable()
+```
+
+### Quantity of stations per zip code and income/earnings
+
+I learned these heatmaps are not good visuals to interpret the relationship between stations and zip code income. They tell more a story of the distribution of income than of the relationship between station/income. They are good to visualize the quantity of stations per zip code and see the ourliers. It's worth noting that **zip code 94025, Menlo Park, in California's Silicon Valley has a whopping 359 electric fuel stations and a median family income of \$204,557**!!
 
 ```{r heatmaps, warning = F, message = F, fig.show="hold", out.width="50%"}
 iee_data %>% 
@@ -164,7 +245,7 @@ iee_data %>%
   theme_minimal()
 ```
 
-#### Individual earnings and family income
+### Individual earnings and family income
 
 In the charts above, I was surprised by how different the relationship between income and stations looks depending on whether you use family median income or individual median earnings. To see why, I plotted the density chart comparing these two. As expected, the median income of families, is higher and more spread out than those of individual earnings. [The U.S. census explains the difference between income and earnings.](https://www.census.gov/newsroom/blogs/random-samplings/2010/09/income-vs-earnings.html). I'm shocked that the family median income is over \$70,000 (earnings/income for the past 12 months in 2020 inflation-adjusted dollars).
 
@@ -189,6 +270,6 @@ iee_data %>%
 
 ## Conclusion
 
-Which income indicator you use matters. There is indeed a relationship between zip code income/earnings and electric fuel stations, but it is small. The lesson is more about which indicator to use.
+Which income indicator you use matters. There is indeed a relationship between zip code income/earnings and electric fuel stations. The lesson, however, is more about which indicator to use.
 
 This project was done as an exercise to learn R, Rmarkdown, and the basics of joining data from different sources. In that regard, the biggest challenge was finding and cleaning U.S. Census data.
