@@ -165,8 +165,9 @@ fam_prop <- iee_data %>%
   group_by(has_e,fam_quant) %>%  
   summarise(freq = n()) %>% 
   group_by(fam_quant) %>% 
-  mutate(prop = round(freq/sum(freq),2)) %>% 
-  ungroup()
+  mutate(prop = round(freq/sum(freq),2)) %>%
+  ungroup() %>% 
+  arrange(fam_quant)
 
 
 ind_prop <- iee_data %>% 
@@ -174,8 +175,9 @@ ind_prop <- iee_data %>%
   group_by(has_e,ind_quant) %>%  
   summarise(freq = n()) %>% 
   group_by(ind_quant) %>% 
-  mutate(prop = round(freq/sum(freq),2)) %>% 
-  ungroup()
+  mutate(prop = round(freq/sum(freq),2)) %>%
+  ungroup() %>% 
+  arrange(ind_quant)
 
 iee_data %>% 
   filter(!is.na(fam_med_income)) %>% 
