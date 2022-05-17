@@ -74,11 +74,11 @@ I joined the electric station data to the income data. To keep track of the lack
 ```{r data_join, message=FALSE, warning=FALSE}
 
 qs <- quantile(iee_data$fam_med_income, na.rm = T)
-qs_lbls <- sapply(1:4,function(i) paste0("Q",i," ",scales::dollar(qs[1])," to ",scales::dollar(qs[i+1])))
+qs_lbls <- sapply(1:4,function(i) paste0("Q",i," ",scales::dollar(qs[i])," to ",scales::dollar(qs[i+1])))
 iee_data$fam_quant <- cut(iee_data$fam_med_income, qs, include.lowest = T, labels = qs_lbls)
 
 qs <- quantile(iee_data$ind_med_earnings, na.rm = T)
-qs_lbls <- sapply(1:4,function(i) paste0("Q",i," ",scales::dollar(qs[1])," to ",scales::dollar(qs[i+1])))
+qs_lbls <- sapply(1:4,function(i) paste0("Q",i," ",scales::dollar(qs[i])," to ",scales::dollar(qs[i+1])))
 iee_data$ind_quant <- cut(iee_data$ind_med_earnings, qs, include.lowest = T, labels = qs_lbls)
 
 rm(qs,qs_lbls)
@@ -207,12 +207,12 @@ Each quartile is made up of a quarter of all zip code incomes, organized from lo
 <div class="row">
   <div class="col-sm-6 col-md-6">
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-knitr::kable(fam_prop, table.attr="class='table-condensed'")
+knitr::kable(fam_prop, col.names = c("e",paste(LBL_FAM,"quartiles"),"n","%"), table.attr="class='table-condensed'")
 ```
   </div>
   <div class="col-sm-6 col-md-6">
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-knitr::kable(ind_prop, table.attr="class='table-condensed'")
+knitr::kable(ind_prop, col.names = c("e",paste(LBL_IND,"quartiles"),"n","%"), table.attr="class='table-condensed'")
 ```
   </div>
 </div>
@@ -270,3 +270,6 @@ iee_data %>%
 Which income indicator you use matters. There is indeed a relationship between zip code income/earnings and electric fuel stations. The lesson, however, is more about which indicator to use.
 
 This project was done as an exercise to learn R, Rmarkdown, and the basics of joining data from different sources. In that regard, the biggest challenge was finding and cleaning U.S. Census data.
+
+---------
+Get data and code at [github.com/guasi/e_stations_rmd](https://github.com/guasi/e_stations_rmd)
