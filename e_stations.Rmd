@@ -72,9 +72,18 @@ iee_data <- left_join(S2001,S1903)
 I joined the electric station data to the income data. To keep track of the lack of existence of electric fuel stations I did not want to rely on counting the NAs, so I created a "has_e" column. I also added a quartile factor for family median income and individual median earnings.
 
 ```{r data_join, message=FALSE, warning=FALSE}
+
+qs <- quantile(iee_data$fam_med_income, na.rm = T)
+qs_lbls <- sapply(1:4,function(i) paste0("Q",i," ",scales::dollar(qs[1])," to ",scales::dollar(qs[i+1])))
+iee_data$fam_quant <- cut(iee_data$fam_med_income, qs, include.lowest = T, labels = qs_lbls)
+
+qs <- quantile(iee_data$ind_med_earnings, na.rm = T)
+qs_lbls <- sapply(1:4,function(i) paste0("Q",i," ",scales::dollar(qs[1])," to ",scales::dollar(qs[i+1])))
+iee_data$ind_quant <- cut(iee_data$ind_med_earnings, qs, include.lowest = T, labels = qs_lbls)
+
+rm(qs,qs_lbls)
+
 iee_data <- iee_data %>% 
-  mutate(fam_quant = cut(fam_med_income,quantile(fam_med_income, na.rm =T),include.lowest = T),
-         ind_quant = cut(ind_med_earnings,quantile(ind_med_earnings, na.rm =T),include.lowest = T)) %>% 
   left_join(stations, by = c("ZIP")) %>% 
   mutate(has_e = ifelse(is.na(e_stations),"no","yes"))
 ```
@@ -118,6 +127,7 @@ iee_data %>%
   scale_color_discrete(name = LBL_ES) +
   scale_fill_discrete(name = LBL_ES) +
   theme_minimal()
+
 ```
 
 I plotted the histograms just to see how the quantity of zip codes with and without stations compared, since this is lost in the density charts. As expected, there are more zip codes without stations.
@@ -191,35 +201,21 @@ iee_data %>%
 
 ```
 
-family median income quartiles | individual median earnings quartiles
--------------------------------|-------------------------------------
-100%  Q4 (\$88,500, \$249,000] | 100%  Q4 (\$41,000, \$246,000]
-75%   Q3 (\$70,700, \$88,500]  | 75%   Q3 (\$33,900, \$41,000] 
-50%   Q2 (\$57,000, \$70,700]  | 50%   Q2 (\$28,800, \$33,900] 
-25%   Q1 [\$5,310, \$57,000]   | 25%   Q1 [\$2,590, \$28,800]
 
 Each quartile is made up of a quarter of all zip code incomes, organized from lowest to largest such that Q1 contains the bottom 25% and Q4 contains the top 25%.
 
-
-```{r warning = F, message = F, eval=FALSE, echo=FALSE}
-clean_interval <- function(x) {
-  oc <- c(str_sub(x,1,1),str_sub(x,-1,-1))
-  x <- str_sub(x,2,str_length(x)-1)
-  x <- as.double(str_split(x,",",simplify=T))
-  x <- scales::dollar(x)
-  paste0(oc[1],x[1],", ",x[2],oc[2])
-}
-
-fam_prop %>% 
-  arrange(desc(fam_quant)) %>% 
-  mutate(fam_quant = lapply(fam_quant,clean_interval)) %>% 
-  knitr::kable()
-
-ind_prop %>% 
-  arrange(desc(ind_quant)) %>% 
-  mutate(ind_quant = lapply(ind_quant,clean_interval)) %>% 
-  knitr::kable()
+<div class="row">
+  <div class="col-sm-6 col-md-6">
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(fam_prop, table.attr="class='table-condensed'")
 ```
+  </div>
+  <div class="col-sm-6 col-md-6">
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(ind_prop, table.attr="class='table-condensed'")
+```
+  </div>
+</div>
 
 ### Quantity of stations per zip code and income/earnings
 
@@ -266,6 +262,7 @@ iee_data %>%
   scale_x_continuous(labels = scales::dollar_format()) +
   scale_y_continuous(name = "density") +
   theme_minimal()
+
 ```
 
 ## Conclusion
