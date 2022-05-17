@@ -166,9 +166,7 @@ fam_prop <- iee_data %>%
   summarise(freq = n()) %>% 
   group_by(fam_quant) %>% 
   mutate(prop = round(freq/sum(freq),2)) %>%
-  ungroup() %>% 
-  arrange(fam_quant)
-
+  ungroup()
 
 ind_prop <- iee_data %>% 
   filter(!is.na(ind_med_earnings)) %>% 
@@ -176,8 +174,7 @@ ind_prop <- iee_data %>%
   summarise(freq = n()) %>% 
   group_by(ind_quant) %>% 
   mutate(prop = round(freq/sum(freq),2)) %>%
-  ungroup() %>% 
-  arrange(ind_quant)
+  ungroup()
 
 iee_data %>% 
   filter(!is.na(fam_med_income)) %>% 
@@ -209,11 +206,13 @@ Each quartile is made up of a quarter of all zip code incomes, organized from lo
 <div class="row">
   <div class="col-sm-6 col-md-6">
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+fam_prop <- fam_prop %>% arrange(fam_quant)
 knitr::kable(fam_prop, col.names = c("e",paste(LBL_FAM,"quartiles"),"n","%"), table.attr="class='table-condensed'")
 ```
   </div>
   <div class="col-sm-6 col-md-6">
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+ind_prop <- ind_prop %>% arrange(ind_quant)
 knitr::kable(ind_prop, col.names = c("e",paste(LBL_IND,"quartiles"),"n","%"), table.attr="class='table-condensed'")
 ```
   </div>
