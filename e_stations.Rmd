@@ -272,4 +272,4 @@ Which income indicator you use matters. There is indeed a relationship between z
 This project was done as an exercise to learn R, Rmarkdown, and the basics of joining data from different sources. In that regard, the biggest challenge was finding and cleaning U.S. Census data.
 
 ---------
-Get data and code at [github.com/guasi/e_stations_rmd](https://github.com/guasi/e_stations_rmd)
+Get data and code at <a href="https://github.com/guasi/e_stations_rmd" target="_parent">github.com/guasi/e_stations_rmd</a>
